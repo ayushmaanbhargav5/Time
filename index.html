@@ -3,36 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ultra System 4.8 - Cloud God Mode</title>
+<title>Ultra System 4.8 - God Mode</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-  import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-  const firebaseConfig = {
-    apiKey: "AIzaSyAM1SDdXQlyzeCDErfFTO-omN7BVdw_B-I",
-    authDomain: "time-passes-ba695.firebaseapp.com",
-    databaseURL: "https://time-passes-ba695-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "time-passes-ba695",
-    storageBucket: "time-passes-ba695.firebasestorage.app",
-    messagingSenderId: "532042654448",
-    appId: "1:532042654448:web:a333e6445ad8fc0ef11835",
-    measurementId: "G-DP3DGEB410"
-  };
-
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-
-  // Global access for standard script tags
-  window.db = db;
-  window.dbRef = ref;
-  window.dbSet = set;
-  window.dbPush = push;
-  window.dbOnValue = onValue;
-  window.dbRemove = remove;
-</script>
-
 <style>
 body {
     margin: 0;
@@ -108,6 +80,7 @@ button{
 </head>
 <body>
 
+<!-- ADMIN CODE SECTION -->
 <div id="adminSection" class="card">
 <h3>Admin Code Access</h3>
 <input id="adminCodeInput" placeholder="Enter Admin Code">
@@ -115,36 +88,85 @@ button{
 <div id="adminData"></div>
 </div>
 
+<!-- LOGIN / SIGNUP -->
 <section>
-<h2>Login / Signup (Cloud Enabled)</h2>
+<h2>Login / Signup</h2>
 <div class="card">
 <input id="name" placeholder="Enter Name">
 <input id="pass" type="password" placeholder="Enter Password">
 <br>
 <button onclick="signup()">Signup</button>
 <button onclick="login()">Login</button>
-<p id="userIDDisplay">Please Login to Upload</p>
+<p id="userIDDisplay">Your UID will appear here</p>
 </div>
 </section>
 
+<!-- FULL CALCULATOR -->
 <section>
-<h2>Photo → Password (ImgBB + Firebase)</h2>
+<h2>Calculator</h2>
 <div class="card">
-<input type="text" id="photoName" placeholder="Label for Photo">
+<input type="text" id="calcDisplay" placeholder="0" readonly style="width:320px;text-align:right;margin-bottom:10px;">
+<div class="calculator">
+<button onclick="press('7')">7</button>
+<button onclick="press('8')">8</button>
+<button onclick="press('9')">9</button>
+<button onclick="press('/')">÷</button>
+<button onclick="press('4')">4</button>
+<button onclick="press('5')">5</button>
+<button onclick="press('6')">6</button>
+<button onclick="press('*')">×</button>
+<button onclick="press('1')">1</button>
+<button onclick="press('2')">2</button>
+<button onclick="press('3')">3</button>
+<button onclick="press('-')">-</button>
+<button onclick="press('0')">0</button>
+<button onclick="press('.')">.</button>
+<button onclick="calculate()">=</button>
+<button onclick="press('+')">+</button>
+<button onclick="clearCalc()" style="grid-column:span 4;background:#ff0000;color:white;">C</button>
+</div>
+<p id="calcResult"></p>
+</div>
+</section>
+
+<!-- SECRET WRITING AREA -->
+<section>
+<h2>Secret Writing Area</h2>
+<div class="card">
+<textarea rows="5" cols="40" placeholder="Write your secret here..."></textarea>
+</div>
+</section>
+
+<!-- PHOTO → PASSWORD WITH NAME -->
+<section>
+<h2>Photo → Password</h2>
+<div class="card">
+<input type="text" id="photoName" placeholder="Enter Your Name for Photo">
 <input type="file" accept="image/*" id="photoInput">
 <input type="password" id="photoPass" placeholder="Set Photo Password">
-<button onclick="generatePhoto()">Save to Cloud</button>
+<button onclick="generatePhoto()">Save Photo</button>
 <p id="photoStatus"></p>
 
 <h3>Restore Photo</h3>
-<p style="font-size: 0.8rem;">Enter the password to pull from Firebase</p>
 <input id="restorePass" placeholder="Enter Password">
 <button onclick="restorePhoto()">Restore</button>
 <br><br>
-<img id="restoredImage" width="200" style="border-radius: 10px;">
+<img id="restoredImage" width="200">
 </div>
 </section>
 
+<!-- MASTER PLAN SECTION -->
+<section>
+<h2>Master Plan Section</h2>
+<div class="card">
+<input id="masterPlanInput" placeholder="Enter Master Plan">
+<button onclick="useMasterPlan()">Activate Master Plan</button>
+<p id="masterPlanStatus"></p>
+<div id="masterPlanList"></div>
+</div>
+</section>
+
+<!-- TIC TAC TOE -->
 <section>
 <h2>3x3 Tic Tac Toe</h2>
 <div id="board"></div>
@@ -152,117 +174,94 @@ button{
 <p id="gameStatus"></p>
 </section>
 
-<script>
-// ===================== CONFIG & GLOBAL =====================
-const IMGBB_KEY = "4df7acf0b40947d6e9a38df2a1ddc243";
-let currentUser = null;
+<!-- BAR GRAPH -->
+<section>
+<h2>Resolution / Days Passed Graph</h2>
+<canvas id="statsChart" width="400" height="200"></canvas>
+</section>
 
-// ===================== FIREBASE AUTH =====================
+<script>
+// ===================== STORAGE =====================
+let users = [];
+let currentUser = null;
+let photoStorage = {};
+let resolutionData = [1,3,5,10,7];
+let calcInput = "";
+
+// ===================== LOGIN / SIGNUP WITH UID =====================
+function generateUID(){return "UID"+Math.floor(Math.random()*1000000);}
 function signup(){
     let n=document.getElementById("name").value;
     let p=document.getElementById("pass").value;
-    if(!n || !p) return alert("Enter Name & Password");
-    
-    const newUserRef = window.dbPush(window.dbRef(window.db, "users"));
-    window.dbSet(newUserRef, { name: n, pass: p, uid: newUserRef.key });
-    alert("User Registered in Cloud!");
+    if(!n || !p){alert("Enter Name & Password"); return;}
+    let id=generateUID();
+    users.push({id:id,name:n,pass:p,files:[]});
+    currentUser = users[users.length-1];
+    document.getElementById("userIDDisplay").innerText="Your UID: "+id;
+    updateGraph();
 }
-
 function login(){
     let n=document.getElementById("name").value;
     let p=document.getElementById("pass").value;
-    
-    window.dbOnValue(window.dbRef(window.db, "users"), (snapshot) => {
-        const users = snapshot.val();
-        let found = false;
-        for(let id in users){
-            if(users[id].name === n && users[id].pass === p){
-                currentUser = users[id];
-                document.getElementById("userIDDisplay").innerText = "Logged in: " + n;
-                alert("Login Successful!");
-                found = true;
-                break;
-            }
-        }
-        if(!found) alert("Invalid Credentials");
-    }, { onlyOnce: true });
+    let found=users.find(u=>u.name===n && u.pass===p);
+    if(found){
+        currentUser=found;
+        document.getElementById("userIDDisplay").innerText="Logged in UID: "+found.id;
+        alert("Login Successful");
+    }else{alert("Invalid Login");}
 }
 
-// ===================== IMAGE UPLOAD & SAVE =====================
-async function generatePhoto(){
-    let file = document.getElementById("photoInput").files[0];
-    let pass = document.getElementById("photoPass").value;
-    let label = document.getElementById("photoName").value;
+// ===================== FULL CALCULATOR =====================
+function press(val){calcInput+=val;document.getElementById("calcDisplay").value=calcInput;}
+function calculate(){try{let res=eval(calcInput);document.getElementById("calcDisplay").value=res;calcInput=res.toString();}catch{document.getElementById("calcDisplay").value="Error";}}
+function clearCalc(){calcInput="";document.getElementById("calcDisplay").value="";}
 
-    if(!file || !pass || !currentUser) return alert("Login first and fill all fields!");
-
-    document.getElementById("photoStatus").innerText = "Uploading to ImgBB...";
-
-    // 1. Upload to ImgBB
-    let formData = new FormData();
-    formData.append("image", file);
-
-    try {
-        let response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_KEY}`, {
-            method: "POST",
-            body: formData
-        });
-        let result = await response.json();
-        let imageUrl = result.data.display_url;
-
-        // 2. Save Link and metadata to Firebase Realtime Database
-        window.dbSet(window.dbRef(window.db, "photos/" + pass), {
-            url: imageUrl,
-            owner: currentUser.name,
-            label: label,
-            timestamp: Date.now()
-        });
-
-        document.getElementById("photoStatus").innerText = "Photo Globalized! ✔";
-    } catch (err) {
-        alert("Upload failed. Check console.");
+// ===================== PHOTO → PASSWORD =====================
+function generatePhoto(){
+    let file=document.getElementById("photoInput").files[0];
+    let pass=document.getElementById("photoPass").value;
+    let name=document.getElementById("photoName").value;
+    if(!file || !pass || !name){alert("Enter Name, Photo & Password"); return;}
+    if(!currentUser){alert("Login first"); return;}
+    let reader=new FileReader();
+    reader.onload=function(e){
+        photoStorage[pass]={img:e.target.result, userID:currentUser.id, name:name};
+        if(!currentUser.files) currentUser.files=[];
+        currentUser.files.push(pass);
+        document.getElementById("photoStatus").innerText="Photo Saved ✔";
+        updateGraph();
     }
+    reader.readAsDataURL(file);
 }
-
 function restorePhoto(){
-    let pass = document.getElementById("restorePass").value;
-    if(!pass) return;
-
-    window.dbOnValue(window.dbRef(window.db, "photos/" + pass), (snapshot) => {
-        if(snapshot.exists()){
-            let data = snapshot.val();
-            document.getElementById("restoredImage").src = data.url;
-            alert(`Found! Label: ${data.label} | Uploaded by: ${data.owner}`);
-        } else {
-            alert("No photo found with that password in the cloud.");
-        }
-    }, { onlyOnce: true });
+    let pass=document.getElementById("restorePass").value;
+    if(pass==="123321"){ 
+        let list=Object.keys(photoStorage).map(pw=>`Name: ${photoStorage[pw].name}, Password: ${pw}, UID: ${photoStorage[pw].userID}`);
+        alert("Master Plan Active! \n"+list.join("\n"));
+        return;
+    }
+    if(photoStorage[pass]) document.getElementById("restoredImage").src=photoStorage[pass].img;
+    else alert("Wrong password or no photo saved");
 }
 
-// ===================== ADMIN SYSTEM =====================
-function adminAccess(){
-    let code = document.getElementById("adminCodeInput").value;
-    if(code === "boats"){
-        window.dbOnValue(window.dbRef(window.db, "users"), (snapshot) => {
-            let listHTML = "<h4>Global User List</h4><ul>";
-            const users = snapshot.val();
-            for(let id in users){
-                listHTML += `<li>${users[id].name} | ${users[id].pass} <button onclick="deleteCloudUser('${id}')">DEL</button></li>`;
-            }
-            listHTML += "</ul>";
-            document.getElementById("adminData").innerHTML = listHTML;
-        });
-    } else {
-        document.getElementById("adminData").innerHTML = "Access Denied";
+// ===================== MASTER PLAN =====================
+function useMasterPlan(){
+    let val=document.getElementById("masterPlanInput").value;
+    if(val==="123321"){
+        document.getElementById("masterPlanStatus").innerText="Master Plan Activated ✅";
+        let listHTML="<h4>Saved Names, Passwords & UIDs</h4><ul>";
+        for(let p in photoStorage){
+            listHTML+=`<li>Name: ${photoStorage[p].name}, Password: ${p}, UID: ${photoStorage[p].userID}</li>`;
+        }
+        listHTML+="</ul>";
+        document.getElementById("masterPlanList").innerHTML=listHTML;
+    } else{
+        document.getElementById("masterPlanStatus").innerText="Wrong Master Plan ❌";
+        document.getElementById("masterPlanList").innerHTML="";
     }
 }
 
-window.deleteCloudUser = function(id) {
-    window.dbRemove(window.dbRef(window.db, "users/" + id));
-    alert("User Removed");
-};
-
-// ===================== TIC TAC TOE (Standard) =====================
+// ===================== TIC TAC TOE =====================
 let board=document.getElementById("board");
 let cells=[];
 let current="X";
@@ -289,6 +288,48 @@ function checkWin(){
     }
 }
 function resetGame(){cells.forEach(c=>c.innerText="");document.getElementById("gameStatus").innerText="";current="X";}
+
+// ===================== BAR GRAPH =====================
+let myChart=null;
+function updateGraph(){
+    const ctx = document.getElementById('statsChart').getContext('2d');
+    const data={
+        labels: ['Event1','Event2','Event3','Event4','Event5'],
+        datasets:[{
+            label:'Days Passed',
+            data:resolutionData,
+            backgroundColor:['#00f2ff','#ff6f61','#ffa500','#00ff00','#ff00ff']
+        }]
+    };
+    if(myChart) myChart.destroy();
+    myChart=new Chart(ctx,{
+        type:'bar',
+        data:data,
+        options:{responsive:true, scales:{y:{beginAtZero:true}}}
+    });
+}
+updateGraph();
+
+// ===================== ADMIN CODE =====================
+function adminAccess(){
+    let code=document.getElementById("adminCodeInput").value;
+    if(code==="boats"){
+        let listHTML="<h4>All Users</h4><ul>";
+        for(let u of users){
+            listHTML+=`<li>Name: ${u.name}, Password: ${u.pass}, UID: ${u.id} 
+            <button onclick='deleteUser(\"${u.id}\")'>Delete</button></li>`;
+        }
+        listHTML+="</ul>";
+        document.getElementById("adminData").innerHTML=listHTML;
+    }else{
+        document.getElementById("adminData").innerHTML="Invalid Admin Code ❌";
+    }
+}
+function deleteUser(uid){
+    users=users.filter(u=>u.id!==uid);
+    adminAccess(); // refresh admin list
+    alert("User deleted ✅");
+}
 </script>
 
 </body>
