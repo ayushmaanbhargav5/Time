@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ultra System 4.8 - Firebase Edition</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getDatabase, ref, set, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+  // YOUR FIREBASE CONFIG
+  const firebaseConfig = {
+    apiKey: "AIzaSyAM1SDdXQlyzeCDErfFTO-omN7BVdw_B-I",
+    authDomain: "time-passes-ba695.firebaseapp.com",
+    databaseURL: "https://time-passes-ba695-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "time-passes-ba695",
+    storageBucket: "time-passes-ba695.firebasestorage.app",
+    messagingSenderId: "532042654448",
+    appId: "1:532042654448:web:a333e6445ad8fc0ef11835",
+    measurementId: "G-DP3DGEB410"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // Expose functions to the window so your HTML buttons can see them
+  window.db = db;
+  window.dbRef = ref;
+  window.dbSet = set;
+  window.dbPush = push;
+  window.dbOnValue = onValue;
+  window.dbRemove = remove;
+</script>
+
+<style>
+/* ... Your CSS remains exactly the same ... */
+body { margin: 0; font-family: Arial, sans-serif; background: linear-gradient(-45deg,#001f3f,#003366,#004080,#00264d); background-size: 400% 400%; animation: gradient 12s ease infinite; color: white; }
+@keyframes gradient{ 0%{background-position:0% 50%;} 50%{background-position:100% 50%;} 100%{background-position:0% 50%;} }
+section{ padding: 50px 20px; min-height: 100vh; border-bottom: 1px solid rgba(255,255,255,0.2); text-align:center; }
+input, button, textarea{ padding:10px; margin:5px; border-radius:5px; border:none; font-size:1rem; }
+button{ cursor:pointer; background:#00f2ff; color:black; font-weight:bold; }
+.card{ background: rgba(255,255,255,0.08); padding:20px; border-radius:15px; margin:20px auto; max-width:400px; backdrop-filter: blur(10px); }
+#adminSection{ position:fixed;top:0;right:0;background:rgba(0,0,0,0.85);padding:15px;border-radius:10px;z-index:1000; }
+.calculator{ display:inline-grid; grid-template-columns:repeat(4,80px); grid-gap:5px; justify-content:center; }
+.calculator button{ width:80px;height:60px;font-size:1.2rem; }
+#board{ display:grid; grid-template-columns:repeat(3,100px); gap:5px; justify-content:center; margin:auto; }
+.cell{ width:100px; height:100px; background:white; color:black; font-size:30px; display:flex; justify-content:center; align-items:center; cursor:pointer; }
+</style>
+</head>
+<body>
+
+<div id="adminSection" class="card">
+    <h3>Admin Access</h3>
+    <input id="adminCodeInput" placeholder="Code (boats)">
+    <button onclick="adminAccess()">Activate</button>
+    <div id="adminData"></div>
+</div>
+
+<section>
+    <h2>Login / Signup (Cloud)</h2>
+    <div class="card">
+        <input id="name" placeholder="Enter Name">
+        <input id="pass" type="password" placeholder="Enter Password">
+        <br>
+        <button onclick="signup()">Signup</button>
+        <button onclick="login()">Login</button>
+        <p id="userIDDisplay">Status: Offline</p>
+    </div>
+</section>
+
+<section>
+    <h2>Photo → Password (Cloud Storage)</h2>
+    <div class="card">
+        <input type="text" id="photoName" placeholder="Photo Label">
+        <input type="file" accept="image/*" id="photoInput">
+        <input type="password" id="photoPass" placeholder="Set Photo Password">
+        <button onclick="generatePhoto()">Upload & Save</button>
+        <p id="photoStatus"></p>
+
+        <h3>Restore Photo</h3>
+        <input id="restorePass" placeholder="Enter Password">
+        <button onclick="restorePhoto()">Restore</button>
+        <br><br>
+        <img id="restoredImage" width="200">
+    </div>
+</section>
+
+<script>
+// ===================== GLOBAL CONFIG =====================
+const IMGBB_API_KEY = "4df7acf0b40947d6e9a38df2a1ddc243";
+let currentUser = null;
+
+// ===================== SIGNUP / LOGIN =====================
+function signup() {
+    let n = document.getElementById("name").value;
+    let p = document.getElementById("pass").value;
+    if(!n || !p) return alert("Fill fields");
+
+    const userRef = window.dbPush(window.dbRef(window.db, "users"));
+    window.dbSet(userRef, { name: n, pass: p, uid: userRef.key });
+    alert("Signed up! You can now login.");
+}
+
+function login() {
+    let n = document.getElementById("name").value;
+    let p = document.getElementById("pass").value;
+    
+    window.dbOnValue(window.dbRef(window.db, "users"), (snapshot) => {
+        const data = snapshot.val();
+        for (let id in data) {
+            if (data[id].name === n && data[id].pass === p) {
+                currentUser = data[id];
+                document.getElementById("userIDDisplay").innerText = "Logged in as: " + n;
+                alert("Cloud Login Success!");
+                return;
+            }
+        }
+        alert("User not found");
+    }, { onlyOnce: true });
+}
+
+// ===================== PHOTO → FIREBASE + IMGBB =====================
+async function generatePhoto() {
+    let file = document.getElementById("photoInput").files[0];
+    let pass = document.getElementById("photoPass").value;
+    let label = document.getElementById("photoName").value;
+
+    if(!file || !pass || !currentUser) return alert("Login first & fill all fields");
+
+    document.getElementById("photoStatus").innerText = "Uploading to Cloud...";
+
+    // 1. Upload to ImgBB
+    let formData = new FormData();
+    formData.append("image", file);
+
+    try {
+        let response = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+            method: "POST",
+            body: formData
+        });
+        let result = await response.json();
+        let imageUrl = result.data.display_url;
+
+        // 2. Save Link to Firebase
+        window.dbSet(window.dbRef(window.db, "photos/" + pass), {
+            url: imageUrl,
+            owner: currentUser.name,
+            label: label
+        });
+
+        document.getElementById("photoStatus").innerText = "Saved to Firebase ✔";
+    } catch (e) {
+        alert("Upload failed");
+    }
+}
+
+function restorePhoto() {
+    let pass = document.getElementById("restorePass").value;
+    window.dbOnValue(window.dbRef(window.db, "photos/" + pass), (snapshot) => {
+        if(snapshot.exists()) {
+            document.getElementById("restoredImage").src = snapshot.val().url;
+        } else {
+            alert("Wrong password or photo doesn't exist");
+        }
+    }, { onlyOnce: true });
+}
+
+// ===================== ADMIN SYSTEM =====================
+function adminAccess() {
+    let code = document.getElementById("adminCodeInput").value;
+    if(code !== "boats") return alert("Wrong Code");
+
+    window.dbOnValue(window.dbRef(window.db, "users"), (snapshot) => {
+        let listHTML = "<h4>Users in Cloud</h4><ul>";
+        const users = snapshot.val();
+        for(let id in users) {
+            listHTML += `<li>${users[id].name} (${users[id].pass}) 
+            <button onclick="deleteCloudUser('${id}')">Delete</button></li>`;
+        }
+        listHTML += "</ul>";
+        document.getElementById("adminData").innerHTML = listHTML;
+    });
+}
+
+window.deleteCloudUser = function(id) {
+    window.dbRemove(window.dbRef(window.db, "users/" + id));
+};
+
+// ... Include your Calculator and TicTacToe functions here (they don't need Firebase) ...
+</script>
+
+</body>
+</html>
